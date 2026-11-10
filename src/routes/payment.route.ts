@@ -9,10 +9,15 @@ const router = Router();
 // Harus dideklarasikan SEBELUM router.use(verifyToken).
 router.post("/notification", controller.handleNotification);
 
-router.use(verifyToken, requireAdmin);
+// Semua route di bawah ini wajib login (pengunjung dari mobile atau admin).
+router.use(verifyToken);
 
-router.get("/", controller.list);
 router.post("/checkout", validateCheckout, controller.checkout);
+router.get("/mine", controller.mine);
 router.get("/:orderId/status", controller.syncStatus);
+
+// Khusus admin (dashboard web).
+router.get("/", requireAdmin, controller.list);
+router.delete("/:orderId", requireAdmin, controller.remove);
 
 export default router;
