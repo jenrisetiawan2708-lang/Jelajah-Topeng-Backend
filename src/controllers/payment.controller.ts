@@ -3,6 +3,7 @@ import { env } from "../config/env";
 import { currentUser } from "../middleware/verifyToken";
 import * as payments from "../models/payment.model";
 import type { PaymentStatus } from "../models/payment.model";
+import * as users from "../models/user.model";
 import type { CheckoutInput } from "../validators/payment.validator";
 import { AppError } from "../utils/AppError";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -63,16 +64,32 @@ function safeEqual(a: string, b: string): boolean {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
-// GET /api/payments
+// GET /api/payments  (admin: transaksi semua pengunjung)
 export const list = asyncHandler(async (_req, res) => {
+  res.success(await payments.listAll(), "Data pembayaran berhasil diambil");
+});
+
+// GET /api/payments/mine  (pengunjung: transaksi miliknya)
+export const mine = asyncHandler(async (_req, res) => {
   const user = currentUser(res);
   res.success(await payments.listByUser(user.id), "Data pembayaran berhasil diambil");
 });
 
-// POST /api/payments/checkout  -> buat transaksi Snap, kembalikan token + redirectUrl
+// POST /api/payments/checkout  (pengunjung dari aplikasi mobile, atau admin)
+// -> buat transaksi Snap, kembalikan redirectUrl LANGSUNG ke pemanggil.
 export const checkout = asyncHandler(async (req, res) => {
   const user = currentUser(res);
   const { amount, itemName, customerName, customerEmail } = req.body as CheckoutInput;
+
+  // Pengunjung: identitas pembeli diambil dari akunnya, bukan dari input.
+  let buyerName = customerName;
+  let buyerEmail = customerEmail;
+  if (user.role === "user") {
+    const profile = await users.findById(user.id);
+    if (!profile) throw new AppError(401, "Akun tidak ditemukan");
+    buyerName = profile.name;
+    buyerEmail = profile.email;
+  }
 
   const orderId = `JT-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
 
@@ -89,8 +106,8 @@ export const checkout = asyncHandler(async (req, res) => {
         { id: "item-1", price: amount, quantity: 1, name: itemName.slice(0, 50) },
       ],
       customer_details: {
-        first_name: customerName ?? "Pengunjung",
-        email: customerEmail,
+        first_name: buyerName ?? "Pengunjung",
+        email: buyerEmail,
       },
       callbacks: { finish: `${env.APP_BASE_URL}/dashboard` },
     }),
@@ -117,8 +134,8 @@ export const checkout = asyncHandler(async (req, res) => {
     amount,
     snapToken: json.token,
     redirectUrl: json.redirect_url,
-    customerName,
-    customerEmail,
+    customerName: buyerName,
+    customerEmail: buyerEmail,
   });
 
   res.success(payment, "Tagihan pembayaran dibuat", 201);
@@ -153,12 +170,16 @@ export const handleNotification = asyncHandler(async (req, res) => {
 });
 
 // GET /api/payments/:orderId/status  -> tanya status langsung ke Midtrans.
+// Pengunjung hanya untuk transaksinya sendiri, admin untuk semua transaksi.
 // Berguna di localhost, karena webhook Midtrans tidak bisa menjangkau komputermu.
 export const syncStatus = asyncHandler(async (req, res) => {
   const user = currentUser(res);
   const orderId = String(req.params.orderId);
 
-  const payment = await payments.findOwned(user.id, orderId);
+  const find = () =>
+    user.role === "admin" ? payments.findAny(orderId) : payments.findOwned(user.id, orderId);
+
+  const payment = await find();
   if (!payment) throw new AppError(404, "Pembayaran tidak ditemukan");
 
   const response = await fetch(`${API_BASE}/v2/${encodeURIComponent(orderId)}/status`, {
@@ -175,5 +196,18 @@ export const syncStatus = asyncHandler(async (req, res) => {
   const status = mapStatus(p.transaction_status, p.fraud_status);
   await payments.updateStatus(orderId, status, p.payment_type ?? null, JSON.stringify(p));
 
-  res.success(await payments.findOwned(user.id, orderId), "Status diperbarui dari Midtrans");
+  res.success(await find(), "Status diperbarui dari Midtrans");
+});
+
+// DELETE /api/payments/:orderId  (admin) -> hapus tagihan yang belum lunas
+export const remove = asyncHandler(async (req, res) => {
+  const orderId = String(req.params.orderId);
+
+  const result = await payments.removeAny(orderId);
+  if (result === "not_found") throw new AppError(404, "Pembayaran tidak ditemukan");
+  if (result === "locked") {
+    throw new AppError(409, "Transaksi yang sudah lunas tidak bisa dihapus");
+  }
+
+  res.success({ orderId }, "Tagihan berhasil dihapus");
 });

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { RowDataPacket } from "mysql2/promise";
+import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "../config/db";
 
 export type PaymentStatus = "pending" | "paid" | "failed" | "expired" | "refunded";
@@ -13,6 +13,8 @@ export type PaymentDTO = {
   paymentType: string | null;
   snapToken: string;
   redirectUrl: string;
+  customerName: string | null;
+  customerEmail: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -27,6 +29,8 @@ interface PaymentRow extends RowDataPacket {
   payment_type: string | null;
   snap_token: string;
   redirect_url: string;
+  customer_name: string | null;
+  customer_email: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -41,6 +45,8 @@ const toDTO = (r: PaymentRow): PaymentDTO => ({
   paymentType: r.payment_type,
   snapToken: r.snap_token,
   redirectUrl: r.redirect_url,
+  customerName: r.customer_name,
+  customerEmail: r.customer_email,
   createdAt: r.created_at.toISOString(),
   updatedAt: r.updated_at.toISOString(),
 });
@@ -70,6 +76,15 @@ export async function create(input: {
   return (await findOwned(input.userId, input.orderId)) as PaymentDTO;
 }
 
+// Admin: semua transaksi semua pengunjung.
+export async function listAll(): Promise<PaymentDTO[]> {
+  const [rows] = await pool.execute<PaymentRow[]>(
+    "SELECT * FROM payments ORDER BY created_at DESC",
+  );
+  return rows.map(toDTO);
+}
+
+// Pengunjung: hanya transaksi miliknya.
 export async function listByUser(userId: string): Promise<PaymentDTO[]> {
   const [rows] = await pool.execute<PaymentRow[]>(
     "SELECT * FROM payments WHERE user_id = ? ORDER BY created_at DESC",
@@ -82,6 +97,15 @@ export async function findOwned(userId: string, orderId: string): Promise<Paymen
   const [rows] = await pool.execute<PaymentRow[]>(
     "SELECT * FROM payments WHERE order_id = ? AND user_id = ?",
     [orderId, userId],
+  );
+  return rows[0] ? toDTO(rows[0]) : null;
+}
+
+// Admin boleh melihat transaksi siapa pun.
+export async function findAny(orderId: string): Promise<PaymentDTO | null> {
+  const [rows] = await pool.execute<PaymentRow[]>(
+    "SELECT * FROM payments WHERE order_id = ?",
+    [orderId],
   );
   return rows[0] ? toDTO(rows[0]) : null;
 }
@@ -107,4 +131,20 @@ export async function updateStatus(
      WHERE order_id = ?`,
     [status, paymentType, raw, new Date(), orderId],
   );
+}
+
+export type RemoveResult = "ok" | "not_found" | "locked";
+
+// Admin menghapus tagihan. Transaksi lunas / dikembalikan dikunci karena
+// dipakai untuk angka pendapatan di dashboard.
+export async function removeAny(orderId: string): Promise<RemoveResult> {
+  const existing = await findAny(orderId);
+  if (!existing) return "not_found";
+  if (existing.status === "paid" || existing.status === "refunded") return "locked";
+
+  const [result] = await pool.execute<ResultSetHeader>(
+    "DELETE FROM payments WHERE order_id = ? AND status NOT IN ('paid', 'refunded')",
+    [orderId],
+  );
+  return result.affectedRows > 0 ? "ok" : "not_found";
 }
