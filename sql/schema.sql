@@ -81,3 +81,13 @@ CREATE TABLE IF NOT EXISTS payments (
   UNIQUE KEY uq_payment_order (order_id),
   KEY idx_payment_user (user_id)
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS app_users (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(160) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('admin','user') NOT NULL DEFAULT 'user',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_app_users_email (email)
+) ENGINE=InnoDB;

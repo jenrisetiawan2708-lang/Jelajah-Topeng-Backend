@@ -2,16 +2,23 @@ import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypt
 import type { RowDataPacket } from "mysql2/promise";
 import { pool } from "../config/db";
 
-export type AppUser = { id: string; name: string; email: string };
+export type Role = "admin" | "user";
+export type AppUser = { id: string; name: string; email: string; role: Role };
 
 interface UserRow extends RowDataPacket {
   id: string;
   name: string;
   email: string;
   password_hash: string;
+  role: Role;
 }
 
-const toUser = (r: UserRow): AppUser => ({ id: r.id, name: r.name, email: r.email });
+const toUser = (r: UserRow): AppUser => ({
+  id: r.id,
+  name: r.name,
+  email: r.email,
+  role: r.role,
+});
 
 // Hash kata sandi dengan scrypt + salt acak (bawaan Node, tanpa paket tambahan).
 function hashPassword(password: string): string {
@@ -41,13 +48,18 @@ export async function emailExists(email: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-export async function create(name: string, email: string, password: string): Promise<AppUser> {
+export async function create(
+  name: string,
+  email: string,
+  password: string,
+  role: Role = "user",
+): Promise<AppUser> {
   const id = randomUUID();
   await pool.execute(
-    "INSERT INTO app_users (id, name, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?)",
-    [id, name, email, hashPassword(password), new Date()],
+    "INSERT INTO app_users (id, name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    [id, name, email, hashPassword(password), role, new Date()],
   );
-  return { id, name, email };
+  return { id, name, email, role };
 }
 
 export async function authenticate(email: string, password: string): Promise<AppUser | null> {
