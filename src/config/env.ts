@@ -10,6 +10,7 @@ const schema = z.object({
   DB_USER: z.string().min(1),
   DB_PASSWORD: z.string().default(""),
   DB_NAME: z.string().min(1),
+  DB_SSL: z.enum(["true", "false"]).default("false"),
   JWT_SECRET: z.string().min(32, "JWT_SECRET minimal 32 karakter"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
   APP_BASE_URL: z.string().default("http://localhost:3000"),

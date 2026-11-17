@@ -8,9 +8,16 @@ export const pool = mysql.createPool({
   user: env.DB_USER,
   password: env.DB_PASSWORD,
   database: env.DB_NAME,
+  // TiDB Cloud mewajibkan koneksi terenkripsi
+  ssl:
+    env.DB_SSL === "true"
+      ? { minVersion: "TLSv1.2", rejectUnauthorized: true }
+      : undefined,
   waitForConnections: true,
-  connectionLimit: 10,
+  // di Vercel (serverless) tiap instance cukup pool kecil
+  connectionLimit: env.NODE_ENV === "production" ? 3 : 10,
   queueLimit: 0,
+  enableKeepAlive: true,
   charset: "utf8mb4",
   timezone: "Z", // Date dibaca/ditulis sebagai UTC
 });
