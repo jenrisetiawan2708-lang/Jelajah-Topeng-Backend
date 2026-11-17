@@ -55,8 +55,8 @@ function validateByLabel(label: string, raw: string): string {
     if (/\d/.test(value)) return `${label} tidak boleh mengandung angka`;
     if (!LETTERS_ONLY.test(value)) return `${label} hanya boleh berisi huruf`;
   }
-  if (l === "durasi" || l === "jumlah subbab") {
-    if (!/^\d+(\s*[a-z]+)?$/i.test(value)) {
+  if (l === "durasi" || l === "jumlah sub bab") {
+    if (!/^\d+(\s*[a-z]+(\s+[a-z]+)*)?$/i.test(value)) {
       return `${label} harus berupa angka (contoh: 90 menit)`;
     }
   }
