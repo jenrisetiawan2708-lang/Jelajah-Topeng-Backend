@@ -194,13 +194,13 @@ export const CONTENT_PROFILES: Record<RecordKind, ContentProfile> = {
 
   notification: {
     fields: ["Judul", "Isi", "Penerima", "Tanggal", "Catatan"],
-    statuses: ["Belum ada data"],
+    statuses: ["Detail tersedia", "Detail belum tersedia"],
     records: [],
   },
 
   faq: {
     fields: ["Pertanyaan", "Jawaban", "Kategori", "Tanggal", "Catatan"],
-    statuses: ["Belum ada data"],
+    statuses: ["Detail tersedia", "Detail belum tersedia"],
     records: [],
   },
 
