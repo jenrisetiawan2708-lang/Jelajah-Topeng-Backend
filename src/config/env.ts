@@ -16,6 +16,9 @@ const schema = z.object({
   APP_BASE_URL: z.string().default("http://localhost:3000"),
   MIDTRANS_SERVER_KEY: z.string().default(""),
   MIDTRANS_IS_PRODUCTION: z.enum(["true", "false"]).default("false"),
+  // AI (Gemini): dipanggil hanya dari BE, kunci tidak pernah dikirim ke klien.
+  GEMINI_API_KEY: z.string().default(""),
+  GEMINI_MODEL: z.string().default(""),
 });
 
 const parsed = schema.safeParse(process.env);
