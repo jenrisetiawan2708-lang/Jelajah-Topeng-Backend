@@ -91,3 +91,17 @@ CREATE TABLE IF NOT EXISTS app_users (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_app_users_email (email)
 ) ENGINE=InnoDB;
+
+Add-Content -Path sql/schema.sql -Value @'
+
+CREATE TABLE IF NOT EXISTS ai_results (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  user_id VARCHAR(64) NOT NULL,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  refs TEXT NOT NULL,
+  confidence VARCHAR(10) NOT NULL,
+  model VARCHAR(100) NOT NULL,
+  created_at DATETIME NOT NULL,
+  KEY idx_ai_user_created (user_id, created_at)
+) ENGINE=InnoDB;

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { checkDb } from "../config/db";
 import { asyncHandler } from "../utils/asyncHandler";
+import aiRoute from "./ai.route";
 import authRoute from "./auth.route";
 import dashboardRoute from "./dashboard.route";
 import paymentRoute from "./payment.route";
@@ -18,6 +19,7 @@ api.get(
 );
 
 api.use("/auth", authRoute);
+api.use("/ai", aiRoute);
 api.use("/records", recordRoute);
 api.use("/refunds", refundRoute);
 api.use("/payments", paymentRoute);

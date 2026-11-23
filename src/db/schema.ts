@@ -19,3 +19,16 @@ export const payments = mysqlTable("payments", {
   createdAt: datetime("created_at", { mode: "date" }).notNull(),
   updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
 });
+
+
+// Definisi tabel `ai_results` (hasil tanya jawab AI). Kolom `refs` berisi JSON array judul materi.
+export const aiResults = mysqlTable("ai_results", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 64 }).notNull(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  refs: text("refs").notNull(),
+  confidence: varchar("confidence", { length: 10 }).notNull(),
+  model: varchar("model", { length: 100 }).notNull(),
+  createdAt: datetime("created_at", { mode: "date" }).notNull(),
+});
