@@ -3,6 +3,7 @@ import { checkDb } from "../config/db";
 import { asyncHandler } from "../utils/asyncHandler";
 import aiRoute from "./ai.route";
 import authRoute from "./auth.route";
+import contentRoute from "./content.route";
 import dashboardRoute from "./dashboard.route";
 import paymentRoute from "./payment.route";
 import recordRoute from "./record.route";
@@ -20,6 +21,7 @@ api.get(
 
 api.use("/auth", authRoute);
 api.use("/ai", aiRoute);
+api.use("/content", contentRoute);
 api.use("/records", recordRoute);
 api.use("/refunds", refundRoute);
 api.use("/payments", paymentRoute);
