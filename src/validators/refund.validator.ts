@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 import { z } from "zod";
-import { fieldErrorsFromIssues } from "./validate";
+import { fieldErrorsFromIssues, validateBody } from "./validate";
 
 export type RefundDecisionInput = {
   decision: "approve" | "reject";
@@ -37,3 +37,27 @@ export const validateRefundDecision: RequestHandler = (req, res, next) => {
   req.body = parsed.data satisfies RefundDecisionInput;
   next();
 };
+
+// ---- Pengajuan refund dari app (pengunjung) ----
+
+const createSchema = z.object({
+  orderId: z.string().trim().min(3, "Nomor pesanan wajib diisi").max(64),
+  reason: z.string().trim().min(3, "Alasan minimal 3 karakter").max(120),
+  note: z.string().trim().max(500, "Catatan maksimal 500 karakter").default(""),
+  visitAt: z
+    .string()
+    .trim()
+    .refine((v) => !Number.isNaN(Date.parse(v)), "Format waktu kunjungan tidak valid"),
+  tickets: z.coerce.number().int().min(1).max(1000).default(1),
+  methodType: z.enum(["bank", "ewallet"]),
+  provider: z.string().trim().min(2, "Nama bank/dompet wajib diisi").max(40),
+  accountNumber: z
+    .string()
+    .transform((s) => s.replace(/[\s-]/g, ""))
+    .pipe(z.string().regex(/^\d{6,20}$/, "Nomor rekening/HP harus 6-20 digit angka")),
+  accountOwner: z.string().trim().min(3, "Nama pemilik minimal 3 karakter").max(120),
+});
+
+export type CreateRefundBody = z.infer<typeof createSchema>;
+
+export const validateRefundCreate = validateBody(createSchema);
