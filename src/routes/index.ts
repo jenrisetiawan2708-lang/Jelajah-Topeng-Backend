@@ -5,6 +5,7 @@ import aiRoute from "./ai.route";
 import authRoute from "./auth.route";
 import contentRoute from "./content.route";
 import dashboardRoute from "./dashboard.route";
+import notificationRoute from "./notification.route";
 import paymentRoute from "./payment.route";
 import recordRoute from "./record.route";
 import refundRoute from "./refund.route";
@@ -26,5 +27,6 @@ api.use("/records", recordRoute);
 api.use("/refunds", refundRoute);
 api.use("/payments", paymentRoute);
 api.use("/dashboard", dashboardRoute);
+api.use("/notifications", notificationRoute);
 
 export default api;
