@@ -1,4 +1,4 @@
-import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
+﻿import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "../config/db";
 import { ALL_USERS } from "../validators/record.validator";
 
@@ -82,20 +82,47 @@ export async function markRead(notificationId: string, userId: string): Promise<
 }
 
 // Untuk bell admin: status baca tiap notifikasi yang dibuat admin ini.
-export async function statusForAdmin(adminId: string): Promise<NotificationStatusDTO[]> {
-  const [rows] = await pool.execute<StatusRow[]>(
-    `SELECT r.id, r.location, COUNT(nr.user_id) AS read_count
+// Untuk bell admin: notifikasi dianggap terbaca hanya jika
+// SELURUH penerima notifikasi sudah membaca lewat aplikasi mobile.
+export async function statusForAdmin(
+  adminId: string,
+): Promise<NotificationStatusDTO[]> {
+  const [rows] = await pool.execute<
+    (StatusRow & {
+      recipient_count: number;
+    })[]
+  >(
+    `SELECT
+       r.id,
+       r.location,
+       COUNT(DISTINCT u.id) AS recipient_count,
+       COUNT(DISTINCT nr.user_id) AS read_count
      FROM content_records r
-     LEFT JOIN notification_reads nr ON nr.notification_id = r.id
-     WHERE r.kind = 'notification' AND r.user_id = ?
-     GROUP BY r.id, r.location`,
-    [adminId],
+     LEFT JOIN app_users u
+       ON u.role = 'user'
+       AND (
+         LOWER(TRIM(r.location)) = LOWER(TRIM(u.email))
+         OR LOWER(TRIM(r.location)) = LOWER(TRIM(?))
+       )
+     LEFT JOIN notification_reads nr
+       ON nr.notification_id = r.id
+       AND nr.user_id = u.id
+     WHERE r.kind = 'notification'
+       AND r.user_id = ?
+     GROUP BY r.id, r.location
+     ORDER BY r.updated_at DESC`,
+    [ALL_USERS, adminId],
   );
 
-  return rows.map((r) => ({
-    id: r.id,
-    recipient: r.location,
-    readCount: Number(r.read_count),
-    read: Number(r.read_count) > 0,
-  }));
+  return rows.map((r) => {
+    const recipientCount = Number(r.recipient_count);
+    const readCount = Number(r.read_count);
+
+    return {
+      id: r.id,
+      recipient: r.location,
+      readCount,
+      read: recipientCount > 0 && readCount >= recipientCount,
+    };
+  });
 }
