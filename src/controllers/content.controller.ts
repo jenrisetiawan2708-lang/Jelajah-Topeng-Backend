@@ -1,4 +1,6 @@
+import { currentUser } from "../middleware/verifyToken";
 import * as content from "../models/content.model";
+import * as appUsers from "../models/user.model";
 import type { AnswerInput } from "../validators/content.validator";
 import { AppError } from "../utils/AppError";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -11,16 +13,23 @@ const normalize = (text: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+// Email pengguna yang sedang login, untuk menyaring notifikasi per penerima.
+async function viewerEmail(userId: string): Promise<string | null> {
+  return (await appUsers.findById(userId))?.email ?? null;
+}
+
 // GET /api/content  -> { exploration: [...], panji: [...], ... }
 export const listAll = asyncHandler(async (_req, res) => {
-  res.success(await content.listAll(), "Konten berhasil diambil");
+  const email = await viewerEmail(currentUser(res).id);
+  res.success(await content.listAll(email), "Konten berhasil diambil");
 });
 
 // GET /api/content/:kind
 export const listByKind = asyncHandler(async (req, res) => {
   const kind = String(req.params.kind);
   if (!content.isPublicKind(kind)) throw new AppError(404, "Jenis konten tidak ditemukan");
-  res.success(await content.listByKind(kind), "Konten berhasil diambil");
+  const email = await viewerEmail(currentUser(res).id);
+  res.success(await content.listByKind(kind, email), "Konten berhasil diambil");
 });
 
 // POST /api/content/panji/:id/answer  { answer }

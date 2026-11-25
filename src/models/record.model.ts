@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool, withTransaction } from "../config/db";
 import { CONTENT_PROFILES, KINDS, type RecordKind } from "../content/profiles";
+import * as appUsers from "./user.model";
 
 export type RecordDTO = {
   id: string;
@@ -96,6 +97,26 @@ export async function listByUser(userId: string): Promise<RecordDTO[]> {
   return rows.map(toDTO);
 }
 
+const dateWib = (d: Date) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(d);
+
+// Halaman Profil Pengguna: bukan data ketikan admin, tapi akun yang mendaftar
+// lewat aplikasi mobile (tabel app_users). Hanya baca.
+const toUserRecord = (u: appUsers.RegisteredUser): RecordDTO => ({
+  id: u.id,
+  name: u.name,
+  description: "Akun pengguna aplikasi mobile Jelajah Topeng.",
+  location: u.email,
+  date: dateWib(u.createdAt),
+  amount: "Mendaftar lewat aplikasi mobile.",
+  status: "Terdaftar",
+  createdAt: u.createdAt.toISOString(),
+  correctAnswer: "",
+  correctClue: "",
+  imageUrl: "",
+  eventDate: "",
+});
+
 export async function listGrouped(userId: string): Promise<Record<RecordKind, RecordDTO[]>> {
   await ensureSeeded(userId);
   const [rows] = await pool.execute<RecordRow[]>(
@@ -108,8 +129,9 @@ export async function listGrouped(userId: string): Promise<Record<RecordKind, Re
     RecordDTO[]
   >;
   for (const row of rows) {
-    if (grouped[row.kind]) grouped[row.kind].push(toDTO(row));
+    if (row.kind !== "users" && grouped[row.kind]) grouped[row.kind].push(toDTO(row));
   }
+  grouped.users = (await appUsers.listRegistered()).map(toUserRecord);
   return grouped;
 }
 

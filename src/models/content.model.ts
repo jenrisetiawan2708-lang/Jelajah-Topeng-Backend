@@ -59,9 +59,21 @@ const toDTO = (r: ContentRow): ContentDTO => ({
   updatedAt: r.updated_at.toISOString(),
 });
 
+// Notifikasi dengan penerima "Semua user" (atau kosong) tampil untuk semua orang.
+// Notifikasi untuk pengguna tertentu hanya tampil untuk pemilik email itu.
+function isForViewer(kind: PublicKind, recipient: string, viewerEmail: string | null): boolean {
+  if (kind !== "notification") return true;
+  const wanted = recipient.trim().toLowerCase();
+  if (wanted === "" || wanted.startsWith("semua")) return true;
+  return viewerEmail !== null && wanted === viewerEmail.trim().toLowerCase();
+}
+
 // Konten milik akun admin. Kalau ada beberapa admin, nama yang sama hanya
 // ditampilkan sekali (versi yang paling baru diubah).
-export async function listByKind(kind: PublicKind): Promise<ContentDTO[]> {
+export async function listByKind(
+  kind: PublicKind,
+  viewerEmail: string | null = null,
+): Promise<ContentDTO[]> {
   const [rows] = await pool.execute<ContentRow[]>(
     `SELECT r.* FROM content_records r
      JOIN app_users u ON u.id = r.user_id
@@ -74,6 +86,7 @@ export async function listByKind(kind: PublicKind): Promise<ContentDTO[]> {
   const items: ContentRow[] = [];
   for (const row of rows) {
     if (HIDDEN_STATUSES.includes(row.status)) continue;
+    if (!isForViewer(kind, row.location, viewerEmail)) continue;
     const key = row.name.trim().toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -82,9 +95,11 @@ export async function listByKind(kind: PublicKind): Promise<ContentDTO[]> {
   return items.reverse().map(toDTO); // urut lama -> baru, sama seperti di web
 }
 
-export async function listAll(): Promise<Record<PublicKind, ContentDTO[]>> {
+export async function listAll(
+  viewerEmail: string | null = null,
+): Promise<Record<PublicKind, ContentDTO[]>> {
   const entries = await Promise.all(
-    PUBLIC_KINDS.map(async (kind) => [kind, await listByKind(kind)] as const),
+    PUBLIC_KINDS.map(async (kind) => [kind, await listByKind(kind, viewerEmail)] as const),
   );
   return Object.fromEntries(entries) as Record<PublicKind, ContentDTO[]>;
 }
