@@ -68,3 +68,26 @@ export async function authenticate(email: string, password: string): Promise<App
   if (!row || !verifyPassword(password, row.password_hash)) return null;
   return toUser(row);
 }
+
+export type RegisteredUser = AppUser & { createdAt: Date };
+
+interface UserListRow extends UserRow {
+  created_at: Date;
+}
+
+// Pengguna biasa (mendaftar lewat aplikasi mobile), terbaru di atas.
+export async function listRegistered(): Promise<RegisteredUser[]> {
+  const [rows] = await pool.execute<UserListRow[]>(
+    "SELECT * FROM app_users WHERE role = 'user' ORDER BY created_at DESC",
+  );
+  return rows.map((r) => ({ ...toUser(r), createdAt: r.created_at }));
+}
+
+// Dipakai untuk memeriksa penerima notifikasi: harus pengguna terdaftar.
+export async function registeredEmailExists(email: string): Promise<boolean> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    "SELECT id FROM app_users WHERE email = ? AND role = 'user'",
+    [email.trim().toLowerCase()],
+  );
+  return rows.length > 0;
+}

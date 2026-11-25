@@ -17,6 +17,9 @@ export type FieldKey =
 
 type Values = Partial<Record<FieldKey, string>>;
 
+export const ALL_USERS = "Semua user";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const LETTERS_ONLY = /^[\p{L}\s.,'’-]+$/u;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const BLOB_URL_RE = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\/.+/i;
@@ -115,7 +118,13 @@ export function checkRecord(
   }
 
   const location = get("location");
-  if (location.length > 200) errors.location = `${f[2]} maksimal 200 karakter`;
+  if (kind === "notification") {
+    // Penerima: "Semua user" atau email pengguna yang sudah terdaftar.
+    if (!location) errors.location = `${f[2]} wajib dipilih`;
+    else if (location !== ALL_USERS && !EMAIL_RE.test(location)) {
+      errors.location = `${f[2]} harus "${ALL_USERS}" atau pengguna terdaftar`;
+    }
+  } else if (location.length > 200) errors.location = `${f[2]} maksimal 200 karakter`;
   else {
     const message = validateByLabel(f[2], location);
     if (message) errors.location = message;
